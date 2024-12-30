@@ -2,6 +2,8 @@ from __init__ import CURSOR, CONN
 
 
 class Department:
+    
+    all = {}
 
     def __init__(self, name, location, id=None):
         self.id = id
@@ -45,6 +47,7 @@ class Department:
         CONN.commit()
 
         self.id = CURSOR.lastrowid
+        type(self).all[self.id] = self
 
     @classmethod
     def create(cls, name, location):
@@ -69,6 +72,49 @@ class Department:
             DELETE FROM departments
             WHERE id = ?
         """
-
         CURSOR.execute(sql, (self.id,))
         CONN.commit()
+        
+        del type(self).all[self.id]
+        self.id = None
+
+    @classmethod
+    def instance_from_db(cls, row):
+        department = cls.all.get(row[0])
+        if department:
+            department.name = row[1]
+            department.location = row[2]
+        else:
+            department = cls(row[1], row[2])
+            department.id = row[0]
+            cls.all[department.id] = department
+        return department
+    
+    @classmethod
+    def get_all(cls):
+        sql = """
+            SELECT * FROM departments
+        """
+        rows = CURSOR.execute(sql).fetchall()
+        
+        return [cls.instance_from_db(row) for row in rows]
+    
+    @classmethod
+    def find_by_id(cls, id):
+        sql = """
+            SELECT * FROM departments
+            WHERE departments.id = ?
+        """
+        row = CURSOR.execute(sql, (id,)).fetchone()
+        
+        return cls.instance_from_db(row) if row else None
+    
+    @classmethod
+    def find_by_name(cls, name):
+        sql = """
+            SELECT * FROM departments
+            WHERE departments.name = ?
+        """
+        row = CURSOR.execute(sql, (name,)).fetchone()
+        
+        return cls.instance_from_db(row) if row else None
